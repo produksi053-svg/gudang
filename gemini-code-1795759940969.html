@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>WMS Pro — Sistem Manajemen Gudang & Produksi</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --primary: #1e3a8a;
+      --primary-light: #3b82f6;
+      --accent: #0ea5e9;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* LOGIN OVERLAY */
+    #loginView {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 60%, #0284c7 100%); padding: 20px;
+    }
+    .login-card {
+      background: rgba(255,255,255,0.97); backdrop-filter: blur(12px);
+      width: 100%; max-width: 420px; padding: 36px; border-radius: 20px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+    }
+    .brand-badge {
+      display: inline-flex; align-items: center; gap: 8px; background: #eff6ff;
+      color: var(--primary); padding: 6px 12px; border-radius: 99px; font-weight: 700; font-size: 12px; margin-bottom: 14px;
+    }
+    .login-card h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .login-card p { color: var(--muted); font-size: 13.5px; margin-bottom: 24px; }
+
+    /* LAYOUT UTAMA */
+    #appView { display: none; min-height: 100vh; }
+    .sidebar {
+      width: 260px; background: #0f172a; color: #f8fafc; position: fixed; top: 0; bottom: 0; left: 0;
+      display: flex; flex-direction: column; z-index: 40;
+    }
+    .sidebar-header { padding: 22px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .sidebar-header h2 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .sidebar-header span { font-size: 11px; color: #94a3b8; display: block; margin-top: 4px; }
+    .nav-list { padding: 14px 12px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .nav-btn {
+      display: flex; align-items: center; gap: 11px; width: 100%; padding: 11px 14px; border: none;
+      background: transparent; color: #cbd5e1; font-size: 13.5px; font-weight: 500; border-radius: 10px;
+      cursor: pointer; text-align: left; transition: 0.18s;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-btn.active { background: var(--primary-light); color: #fff; font-weight: 600; }
+    .nav-divider { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; padding: 12px 14px 4px; font-weight: 700; }
+
+    .user-box { padding: 16px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.2); }
+    .role-pill {
+      display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; margin-top: 4px;
+    }
+    .role-editor { background: rgba(16,185,129,0.2); color: #34d399; }
+    .role-viewer { background: rgba(245,158,11,0.2); color: #fbbf24; }
+
+    .main { margin-left: 260px; padding: 24px 28px; }
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+      background: var(--surface); padding: 16px 22px; border-radius: var(--radius); border: 1px solid var(--border);
+    }
+    .topbar h1 { font-size: 20px; font-weight: 700; }
+
+    /* CARDS, CHARTS & GRID */
+    .grid-gudang { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .grid-charts { display: grid; grid-template-columns: 1.6fr 1fr; gap: 18px; margin-bottom: 24px; }
+    .chart-box { position: relative; height: 290px; width: 100%; }
+    .qc-summary-strip {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; padding-top: 12px;
+      border-top: 1px dashed var(--border);
+    }
+    .qc-stat { padding: 10px 12px; border-radius: 10px; }
+    .qc-stat.pass { background: #ecfdf5; color: #065f46; }
+    .qc-stat.fail { background: #fef2f2; color: #991b1b; }
+    .qc-stat span { font-size: 11.5px; display: block; font-weight: 600; }
+    .qc-stat strong { font-size: 16px; font-weight: 700; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .progress-bar { height: 8px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin: 10px 0; }
+    .progress-fill { height: 100%; background: var(--primary-light); transition: width 0.3s; }
+    .progress-fill.warn { background: var(--warning); }
+    .progress-fill.danger { background: var(--danger); }
+
+    /* FORMS & TABLES */
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 12.5px; font-weight: 600; color: #334155; margin-bottom: 5px; }
+    input, select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 13.5px; background: #fff; color: var(--text); outline: none; transition: 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    input[readonly] { background: #f8fafc; color: #475569; font-weight: 600; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px;
+      border: none; border-radius: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: 0.15s;
+      text-decoration: none;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-sheet { background: #0f766e; color: #fff; }
+    .btn-sheet:hover { background: #115e59; }
+    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: #f8fafc; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f8fafc; color: #475569; font-weight: 700; text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:hover td { background: #f8fafc; }
+
+    .badge { padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; display: inline-block; }
+    .badge-pass { background: #dcfce7; color: #166534; }
+    .badge-fail { background: #fee2e2; color: #991b1b; }
+    .badge-info { background: #dbeafe; color: #1e40af; }
+    .badge-warn { background: #fef3c7; color: #92400e; }
+
+    .section { display: none; }
+    .section.active { display: block; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+    /* MODAL EDIT */
+    #editModal {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
+      display: none; align-items: center; justify-content: center; z-index: 950; padding: 16px;
+    }
+    .modal-card {
+      background: #fff; width: 100%; max-width: 560px; border-radius: 16px; padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35); max-height: 90vh; overflow-y: auto;
+    }
+
+    /* VIEWER RESTRICTION */
+    body.is-viewer .editor-only { display: none !important; }
+    .viewer-banner {
+      display: none; background: #fef3c7; color: #92400e; padding: 10px 16px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; margin-bottom: 16px; border: 1px solid #fde68a;
+    }
+    body.is-viewer .viewer-banner { display: flex; align-items: center; gap: 8px; }
+
+    /* TOAST & LOADER */
+    #loader {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.45); backdrop-filter: blur(2px);
+      display: none; align-items: center; justify-content: center; z-index: 999; color: #fff; font-weight: 600;
+    }
+    #toast {
+      position: fixed; bottom: 22px; right: 22px; background: #0f172a; color: #fff; padding: 13px 18px;
+      border-radius: 10px; font-size: 13.5px; font-weight: 500; box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+      display: none; z-index: 1000;
+    }
+
+    @media (max-width: 980px) {
+      .grid-charts, .grid-4, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loader"><i class="ri-loader-4-line ri-spin" style="font-size:24px;margin-right:8px;"></i> Memproses data...</div>
+<div id="toast"></div>
+
+<!-- MODAL EDIT TRANSAKSI / MASTER -->
+<div id="editModal">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:16px;" id="editModalTitle">Edit Data</h3>
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()"><i class="ri-close-line"></i></button>
+    </div>
+    <div id="editModalFields"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()">Batal</button>
+      <button class="btn btn-primary btn-sm" onclick="submitEditModal()"><i class="ri-save-line"></i> Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HALAMAN LOGIN ==================== -->
+<div id="loginView">
+  <div class="login-card">
+    <div class="brand-badge"><i class="ri-building-2-fill"></i> WMS & PRODUCTION FLOW</div>
+    <h1>Masuk ke Sistem</h1>
+    <p>Gunakan akun yang diberikan (akses otomatis menyesuaikan peran <b>Editor</b> atau <b>Viewer</b>).</p>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" id="loginUser" placeholder="Contoh: admin / operator / viewer">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Masukkan password" onkeydown="if(event.key==='Enter') handleLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:11px;margin-top:6px;" onclick="handleLogin()">
+      <i class="ri-login-box-line"></i> Masuk ke Aplikasi
+    </button>
+    <div style="margin-top:16px;padding:10px;background:#f8fafc;border-radius:8px;font-size:12px;color:#475569;">
+      <b>Demo Akun:</b><br>
+      • Editor: <code>admin</code> / <code>admin123</code><br>
+      • Viewer (Lihat Saja): <code>viewer</code> / <code>view123</code>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APLIKASI UTAMA ==================== -->
+<div id="appView">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2><i class="ri-stack-fill" style="color:#38bdf8;"></i> WMS Terpadu</h2>
+      <span>Satuan Kg/Ton & Gudang Fleksibel</span>
+    </div>
+    <div class="nav-list">
+      <div class="nav-divider">Monitoring</div>
+      <button class="nav-btn active" onclick="switchTab('dashboard', this)"><i class="ri-dashboard-3-line"></i> Dashboard & Gudang</button>
+      <button class="nav-btn" onclick="switchTab('master', this)"><i class="ri-archive-drawer-line"></i> Master Barang & Stok</button>
+
+      <div class="nav-divider">Alur Produksi</div>
+      <button class="nav-btn" onclick="switchTab('masuk', this)"><i class="ri-inbox-archive-line"></i> 1. Barang Masuk (10 Baris)</button>
+      <button class="nav-btn" onclick="switchTab('status', this)"><i class="ri-checkbox-circle-line"></i> 2. Status QC (Pass/Fail)</button>
+      <button class="nav-btn" onclick="switchTab('transisi', this)"><i class="ri-loop-left-line"></i> 3. Transisi (Fail Rework)</button>
+      <button class="nav-btn" onclick="switchTab('rebagging', this)"><i class="ri-shopping-bag-3-line"></i> 4. Rebagging (Pass → FG)</button>
+
+      <div class="nav-divider">Gudang Jadi & Distribusi</div>
+      <button class="nav-btn" onclick="switchTab('fg', this)"><i class="ri-box-3-line"></i> 5. Stok FG Siap Kirim</button>
+      <button class="nav-btn" onclick="switchTab('keluar', this)"><i class="ri-truck-line"></i> 6. Barang Keluar (Nopol)</button>
+    </div>
+    <div class="user-box">
+      <div style="font-size:13.5px;font-weight:700;" id="dispName">-</div>
+      <span class="role-pill" id="dispRole">-</span>
+      <button class="btn btn-outline btn-sm" style="width:100%;margin-top:10px;background:rgba(255,255,255,0.08);color:#fff;border-color:rgba(255,255,255,0.15);" onclick="logout()">
+        <i class="ri-logout-box-r-line"></i> Keluar
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="pageTitle">Dashboard & Kapasitas Gudang</h1>
+        <span style="font-size:12.5px;color:var(--muted);">Sinkronisasi 2 arah — dapat diedit lewat aplikasi maupun langsung di Google Spreadsheet</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a id="btnOpenSheet" href="#" target="_blank" class="btn btn-sheet"><i class="ri-file-excel-2-line"></i> Buka Spreadsheet</a>
+        <button class="btn btn-outline" onclick="loadData()"><i class="ri-refresh-line"></i> Refresh Data</button>
+      </div>
+    </div>
+
+    <div class="viewer-banner">
+      <i class="ri-eye-line" style="font-size:18px;"></i>
+      Mode Viewer (Lihat Saja): Anda login dengan akses baca. Fitur input dan edit dinonaktifkan.
+    </div>
+
+    <!-- 1. DASHBOARD & GUDANG -->
+    <section id="sec-dashboard" class="section active">
+      <div class="grid-charts">
+        <div class="card">
+          <div style="margin-bottom:10px;">
+            <h3 style="font-size:15px;">Grafik Utilisasi & Kapasitas Gudang (Kg)</h3>
+            <span style="font-size:12px;color:var(--muted);">Perbandingan stok terpakai vs sisa kapasitas</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="gudangChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="margin-bottom:10px;">
+            <h3 style="font-size:15px;">Perbandingan Stok QC: Pass vs Fail</h3>
+            <span style="font-size:12px;color:var(--muted);">Distribusi volume lolos QC & masuk Transisi</span>
+          </div>
+          <div class="chart-box" style="height:200px;">
+            <canvas id="qcChart"></canvas>
+          </div>
+          <div class="qc-summary-strip">
+            <div class="qc-stat pass">
+              <span>Total Pass (Rebagging)</span>
+              <strong id="qcPassTotal">0 Kg</strong>
+            </div>
+            <div class="qc-stat fail">
+              <span>Total Fail (Transisi)</span>
+              <strong id="qcFailTotal">0 Kg</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <h3 style="font-size:16px;">Detail Kapasitas Gudang (Nama & Kapasitas Dapat Diedit / Ditambah)</h3>
+        <button class="btn btn-primary btn-sm editor-only" onclick="toggleCapEdit()"><i class="ri-edit-box-line"></i> Edit Nama / Tambah Gudang</button>
+      </div>
+
+      <div id="capEditBox" class="card editor-only" style="display:none;margin-bottom:18px;border-color:#93c5fd;background:#eff6ff;">
+        <h4 style="margin-bottom:10px;font-size:14px;">Edit Nama & Kapasitas Gudang Eksisting (Kg)</h4>
+        <div id="capInputs" class="grid-3" style="margin-bottom:16px;"></div>
+
+        <div style="border-top:1px solid #bfdbfe;padding-top:12px;margin-bottom:12px;">
+          <h4 style="margin-bottom:8px;font-size:13.5px;color:var(--primary);">+ Tambah Gudang Baru (Opsional)</h4>
+          <div class="grid-2">
+            <div class="form-group" style="margin:0;"><label>Nama Gudang Baru</label><input type="text" id="newGdgNama" placeholder="Contoh: Gudang H / Gudang Ekspor"></div>
+            <div class="form-group" style="margin:0;"><label>Kapasitas Max (Kg)</label><input type="number" id="newGdgCap" placeholder="Contoh: 500000" min="0"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" onclick="saveGudangConfig()"><i class="ri-save-line"></i> Simpan Pengaturan Gudang</button>
+      </div>
+
+      <div class="grid-gudang" id="gudangCards"></div>
+    </section>
+
+    <!-- 2. MASTER BARANG -->
+    <section id="sec-master" class="section">
+      <div class="card editor-only" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Tambah Master Barang & Stok Awal (Kode Otomatis)</h3>
+        <div class="grid-4">
+          <div class="form-group">
+            <label>Kode Barang (Otomatis)</label>
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="mKode" readonly>
+              <button class="btn btn-outline btn-sm" onclick="generateNextMasterCode()" title="Generate Ulang Kode"><i class="ri-refresh-line"></i></button>
+            </div>
+          </div>
+          <div class="form-group"><label>Nama Barang</label><input type="text" id="mNama" placeholder="Nama produk / bahan"></div>
+          <div class="form-group"><label>Gudang Tujuan Awal</label><select id="mGudang"></select></div>
+          <div class="form-group">
+            <label>Stok Awal & Satuan</label>
+            <div style="display:flex;gap:6px;">
+              <input type="number" id="mStok" value="0" min="0" step="0.01">
+              <select id="mSatuan" style="width:95px;">
+                <option value="Kg" selected>Kg</option>
+                <option value="Ton">Ton</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="submitMaster()"><i class="ri-add-line"></i> Simpan ke Master Barang</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kode</th><th>Nama Barang</th><th>Gudang Tujuan</th><th>Stok Awal</th><th>Total Masuk (Kg)</th>
+              <th>Pass (Kg)</th><th>Fail (Kg)</th><th>FG Siap (Kg)</th><th>Keluar (Kg)</th>
+              <th>Stok Akhir (Kg / Ton)</th><th>Histori Input/Edit</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblMaster"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. BARANG MASUK (10 BARIS + SATUAN KG/TON) -->
+    <section id="sec-masuk" class="section">
+      <div class="card editor-only" style="margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <h3 style="font-size:15px;">Form Input Barang Masuk (Batch 10 Baris)</h3>
+            <span style="font-size:12px;color:var(--muted);">Default satuan <b>Kg</b> (tersedia opsi <b>Kg / Ton</b>). Pilih gudang tujuan di tiap baris.</span>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline btn-sm" onclick="addMasukRow()"><i class="ri-add-circle-line"></i> + Tambah Baris</button>
+            <button class="btn btn-primary btn-sm" onclick="submitMasukBatch()"><i class="ri-save-3-line"></i> Simpan Semua Input</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:36px;">#</th>
+                <th>Tanggal Produksi</th>
+                <th>Shift / Line (1–2)</th>
+                <th>Nama Barang</th>
+                <th style="width:110px;">Qty</th>
+                <th style="width:85px;">Satuan</th>
+                <th>Keterangan Proses</th>
+                <th>Gudang Tujuan</th>
+              </tr>
+            </thead>
+            <tbody id="masukBatchBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 style="font-size:15px;margin-bottom:10px;">Rekap & Histori Barang Masuk</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Tanggal</th><th>Shift/Line</th><th>Nama Barang</th><th>Qty Input</th>
+              <th>Konversi (Kg)</th><th>Keterangan</th><th>Gudang</th><th>Input Oleh</th><th>Diedit Oleh</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblMasuk"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. STATUS QC -->
+    <section id="sec-status" class="section">
+      <div class="card editor-only" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:6px;">Input Status QC (Pass → Rebagging | Fail → Transisi)</h3>
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;">Pilih <b>Tanggal Produksi</b> dan <b>Shift/Line</b> untuk memunculkan Nama Barang, Qty, Satuan, dan Gudang secara otomatis (tetap dapat diedit).</p>
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Tanggal Produksi</label>
+            <input type="date" id="stTanggal" onchange="autoFillStatusFromMasuk()">
+          </div>
+          <div class="form-group">
+            <label>Shift / Line</label>
+            <select id="stShift" onchange="autoFillStatusFromMasuk()"></select>
+          </div>
+          <div class="form-group">
+            <label>Nama Barang (Otomatis / Edit)</label>
+            <select id="stBarang"></select>
+          </div>
+          <div class="form-group">
+            <label>Qty & Satuan (Otomatis / Edit)</label>
+            <div style="display:flex;gap:6px;">
+              <input type="number" id="stQty" step="0.01" placeholder="Otomatis...">
+              <select id="stSatuan" style="width:95px;">
+                <option value="Kg" selected>Kg</option>
+                <option value="Ton">Ton</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Status QC</label>
+            <select id="stHasil">
+              <option value="Pass">Pass (Otomatis ke Rebagging)</option>
+              <option value="Fail">Fail (Otomatis ke Transisi)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Gudang Tujuan</label>
+            <select id="stGudang"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Catatan QC</label>
+          <input type="text" id="stCatatan" placeholder="Contoh: Kadar air sesuai standar / Perlu redryer">
+        </div>
+        <button class="btn btn-primary" onclick="submitStatus()"><i class="ri-check-double-line"></i> Simpan Status QC</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Tanggal</th><th>Shift/Line</th><th>Nama Barang</th><th>Qty</th><th>Konversi (Kg)</th>
+              <th>Status QC</th><th>Alur Otomatis</th><th>Gudang</th><th>Catatan</th><th>Input / Edit</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblStatus"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. TRANSISI -->
+    <section id="sec-transisi" class="section">
+      <div class="card" style="margin-bottom:14px;background:#fffbeb;border-color:#fde68a;">
+        <b>Alur Transisi:</b> Menampung barang berstatus <b>Fail</b> untuk diproses ulang (<b>Redryer</b>, <b>Blending</b>, atau diteruskan ke <b>Rebagging</b>).
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Ref QC</th><th>Tanggal</th><th>Nama Barang</th><th>Qty</th><th>Konversi (Kg)</th>
+              <th>Asal Gudang</th><th>Tindakan</th><th>Gudang Tujuan</th><th>Status</th><th>Input / Edit</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblTransisi"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 6. REBAGGING -->
+    <section id="sec-rebagging" class="section">
+      <div class="card" style="margin-bottom:14px;background:#eff6ff;border-color:#bfdbfe;">
+        <b>Alur Rebagging:</b> Barang berstatus <b>Pass</b> (atau hasil rework Transisi) dikemas menjadi <b>FG Siap Kirim</b>.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Sumber</th><th>Tanggal</th><th>Nama Barang</th><th>Qty Masuk</th>
+              <th>Qty Jadi FG</th><th>Satuan</th><th>Gudang FG</th><th>Status</th><th>Input / Edit</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblRebagging"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 7. FG (FINISHED GOODS) -->
+    <section id="sec-fg" class="section">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr id="fgTableHead"></tr>
+          </thead>
+          <tbody id="tblFG"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 8. BARANG KELUAR -->
+    <section id="sec-keluar" class="section">
+      <div class="card editor-only" style="margin-bottom:20px;">
+        <h3 style="font-size:15px;margin-bottom:12px;">Input Pengiriman Barang Keluar (FG)</h3>
+        <div class="grid-3">
+          <div class="form-group"><label>Tanggal Kirim</label><input type="date" id="klTanggal"></div>
+          <div class="form-group"><label>Nama Barang (FG)</label><select id="klBarang"></select></div>
+          <div class="form-group"><label>Nopol Kendaraan</label><input type="text" id="klNopol" placeholder="Contoh: AE 8421 UP"></div>
+          <div class="form-group">
+            <label>Qty Keluar & Satuan</label>
+            <div style="display:flex;gap:6px;">
+              <input type="number" id="klQty" step="0.01" min="0.01">
+              <select id="klSatuan" style="width:95px;">
+                <option value="Kg" selected>Kg</option>
+                <option value="Ton">Ton</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group"><label>Asal Gudang</label><select id="klGudang"></select></div>
+          <div class="form-group"><label>Customer / Tujuan</label><input type="text" id="klTujuan" placeholder="Nama penerima / kota tujuan"></div>
+        </div>
+        <button class="btn btn-primary" onclick="submitKeluar()"><i class="ri-send-plane-fill"></i> Catat Barang Keluar</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Tanggal</th><th>Nama Barang</th><th>Nopol</th><th>Qty Keluar</th>
+              <th>Konversi (Kg)</th><th>Asal Gudang</th><th>Tujuan</th><th>Input Oleh</th><th>Diedit Oleh</th><th class="editor-only">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tblKeluar"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  let CURRENT_USER = null;
+  let WMS_DATA = null;
+  let GUDANG_CHART = null;
+  let QC_CHART = null;
+  let EDIT_CONTEXT = null;
+
+  // Hanya Shift 1 & Shift 2 (Line 1 - 5), Shift 3 dihilangkan
+  const SHIFT_LINE_OPTIONS = [
+    'Shift 1 Line 1', 'Shift 1 Line 2', 'Shift 1 Line 3', 'Shift 1 Line 4', 'Shift 1 Line 5',
+    'Shift 2 Line 1', 'Shift 2 Line 2', 'Shift 2 Line 3', 'Shift 2 Line 4', 'Shift 2 Line 5'
+  ];
+
+  function getGudangNames() {
+    if (!WMS_DATA || !WMS_DATA.gudangList) return [];
+    return WMS_DATA.gudangList.map(g => g.nama);
+  }
+
+  function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+
+  function todayStr() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function fmtNum(val) {
+    return Number(val || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+  }
+
+  function handleLogin() {
+    const u = document.getElementById('loginUser').value;
+    const p = document.getElementById('loginPass').value;
+    if (!u || !p) return showToast('Masukkan username dan password.');
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      if (!res.success) return showToast(res.message);
+      CURRENT_USER = res.user;
+      document.getElementById('loginView').style.display = 'none';
+      document.getElementById('appView').style.display = 'block';
+      document.getElementById('dispName').textContent = CURRENT_USER.nama;
+
+      const roleEl = document.getElementById('dispRole');
+      roleEl.textContent = 'Akses: ' + CURRENT_USER.role;
+      roleEl.className = 'role-pill ' + (CURRENT_USER.role === 'Editor' ? 'role-editor' : 'role-viewer');
+
+      if (CURRENT_USER.role !== 'Editor') {
+        document.body.classList.add('is-viewer');
+      } else {
+        document.body.classList.remove('is-viewer');
+      }
+
+      document.getElementById('stTanggal').value = todayStr();
+      document.getElementById('klTanggal').value = todayStr();
+      loadData();
+    }).loginUser(u, p);
+  }
+
+  function logout() {
+    CURRENT_USER = null;
+    document.getElementById('appView').style.display = 'none';
+    document.getElementById('loginView').style.display = 'flex';
+  }
+
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + tab).classList.add('active');
+    document.getElementById('pageTitle').textContent = btn.textContent.trim();
+    if (tab === 'dashboard' && WMS_DATA) renderCharts();
+  }
+
+  function loadData() {
+    showLoader(true);
+    google.script.run.withSuccessHandler(data => {
+      showLoader(false);
+      WMS_DATA = data;
+      if (data.spreadsheetUrl) {
+        document.getElementById('btnOpenSheet').href = data.spreadsheetUrl;
+      }
+      renderAll();
+    }).getAllWmsData();
+  }
+
+  function renderAll() {
+    renderGudang();
+    renderCharts();
+    renderMaster();
+    generateNextMasterCode();
+    populateDropdowns();
+    initMasukBatch();
+    renderTables();
+  }
+
+  function generateNextMasterCode() {
+    if (!WMS_DATA) return;
+    let maxNum = 0;
+    WMS_DATA.masterList.forEach(m => {
+      const match = String(m.kode || '').match(/(\d+)/);
+      if (match) {
+        const n = parseInt(match[1], 10);
+        if (n > maxNum) maxNum = n;
+      }
+    });
+    document.getElementById('mKode').value = 'BRG-' + String(maxNum + 1).padStart(3, '0');
+  }
+
+  function renderCharts() {
+    if (!WMS_DATA || typeof Chart === 'undefined') return;
+
+    const gLabels = WMS_DATA.gudangList.map(g => g.nama);
+    const gTerpakai = WMS_DATA.gudangList.map(g => g.terpakai);
+    const gSisa = WMS_DATA.gudangList.map(g => Math.max(0, g.sisa));
+    const gUtilPct = WMS_DATA.gudangList.map(g => Math.round((g.utilisasi || 0) * 1000) / 10);
+
+    const gCtx = document.getElementById('gudangChart').getContext('2d');
+    if (GUDANG_CHART) GUDANG_CHART.destroy();
+    GUDANG_CHART = new Chart(gCtx, {
+      type: 'bar',
+      data: {
+        labels: gLabels,
+        datasets: [
+          { label: 'Terpakai (Kg)', data: gTerpakai, backgroundColor: '#2563eb', borderRadius: 6 },
+          { label: 'Sisa Kapasitas (Kg)', data: gSisa, backgroundColor: '#cbd5e1', borderRadius: 6 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              afterBody: function(items) {
+                const idx = items[0].dataIndex;
+                const cap = WMS_DATA.gudangList[idx].kapasitas;
+                return `Utilisasi: ${gUtilPct[idx]}% dari ${fmtNum(cap)} Kg`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Berat (Kg)', font: { size: 11.5 } } }
+        }
+      }
+    });
+
+    const totalPass = WMS_DATA.masterList.reduce((sum, m) => sum + (Number(m.totalPassKg) || 0), 0);
+    const totalFail = WMS_DATA.masterList.reduce((sum, m) => sum + (Number(m.totalFailKg) || 0), 0);
+
+    document.getElementById('qcPassTotal').textContent = `${fmtNum(totalPass)} Kg (${fmtNum(totalPass/1000)} T)`;
+    document.getElementById('qcFailTotal').textContent = `${fmtNum(totalFail)} Kg (${fmtNum(totalFail/1000)} T)`;
+
+    const qcCtx = document.getElementById('qcChart').getContext('2d');
+    if (QC_CHART) QC_CHART.destroy();
+    QC_CHART = new Chart(qcCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Pass (Rebagging)', 'Fail (Transisi)'],
+        datasets: [{
+          data: [totalPass, totalFail],
+          backgroundColor: ['#10b981', '#ef4444'],
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const total = totalPass + totalFail;
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : '0.0';
+                return ` ${ctx.label}: ${fmtNum(ctx.raw)} Kg (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderGudang() {
+    const container = document.getElementById('gudangCards');
+    const capInputs = document.getElementById('capInputs');
+    container.innerHTML = '';
+    capInputs.innerHTML = '';
+
+    WMS_DATA.gudangList.forEach((g, idx) => {
+      const pct = Math.min(100, Math.round(g.utilisasi * 100));
+      const fillClass = pct >= 100 ? 'danger' : (pct >= 85 ? 'warn' : '');
+      const badgeClass = g.status === 'OVER CAPACITY' ? 'badge-fail' : (g.status === 'HAMPIR PENUH' ? 'badge-warn' : 'badge-pass');
+
+      container.innerHTML += `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong style="font-size:15px;">${g.nama}</strong>
+            <span class="badge ${badgeClass}">${g.status}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">Kapasitas Maks: <b>${fmtNum(g.kapasitas)} Kg</b> (${fmtNum(g.kapasitas/1000)} T)</div>
+          <div class="progress-bar"><div class="progress-fill ${fillClass}" style="width:${pct}%"></div></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:8px;">
+            <span>Terpakai: <b>${fmtNum(g.terpakai)} Kg</b> (${pct}%)</span>
+            <span>Sisa: <b style="color:var(--primary);">${fmtNum(g.sisa)} Kg</b></span>
+          </div>
+          <div style="border-top:1px dashed var(--border);padding-top:8px;font-size:11.5px;color:#475569;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <span>• Stok Awal: <b>${fmtNum(g.stokAwal)} Kg</b></span>
+            <span>• Masuk: <b>${fmtNum(g.stokMasuk)} Kg</b></span>
+            <span>• Transisi: <b>${fmtNum(g.stokTransisi)} Kg</b></span>
+            <span>• Rebag/FG: <b>${fmtNum(g.stokRebagging + g.stokFG)} Kg</b></span>
+          </div>
+        </div>
+      `;
+
+      capInputs.innerHTML += `
+        <div class="card" style="padding:12px;background:#fff;">
+          <label style="font-size:11.5px;color:var(--muted);">Nama Gudang #${idx + 1}</label>
+          <input type="text" id="gdgName_${idx}" data-row="${g.row}" value="${g.nama}" style="margin-bottom:8px;font-weight:600;">
+          <label style="font-size:11.5px;color:var(--muted);">Kapasitas Max (Kg)</label>
+          <input type="number" id="gdgCap_${idx}" value="${g.kapasitas}" min="0">
+        </div>
+      `;
+    });
+  }
+
+  function toggleCapEdit() {
+    const box = document.getElementById('capEditBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function saveGudangConfig() {
+    const items = [];
+    for (let i = 0; i < WMS_DATA.gudangList.length; i++) {
+      const nameEl = document.getElementById('gdgName_' + i);
+      const capEl = document.getElementById('gdgCap_' + i);
+      items.push({
+        row: Number(nameEl.dataset.row),
+        nama: nameEl.value,
+        kapasitas: Number(capEl.value) || 0
+      });
+    }
+    const newNama = document.getElementById('newGdgNama').value.trim();
+    const newCap = Number(document.getElementById('newGdgCap').value) || 0;
+    const newGudang = newNama ? { nama: newNama, kapasitas: newCap } : null;
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      document.getElementById('newGdgNama').value = '';
+      document.getElementById('newGdgCap').value = '';
+      document.getElementById('capEditBox').style.display = 'none';
+      loadData();
+    }).saveGudangSettings(items, newGudang);
+  }
+
+  function renderMaster() {
+    const tbody = document.getElementById('tblMaster');
+    tbody.innerHTML = WMS_DATA.masterList.map((m, idx) => `
+      <tr>
+        <td><b>${m.kode}</b></td>
+        <td>${m.nama}</td>
+        <td><span class="badge badge-info">${m.gudangTujuan || '-'}</span></td>
+        <td>${fmtNum(m.stokAwal)} ${m.satuan}</td>
+        <td>${fmtNum(m.totalMasukKg)} Kg</td>
+        <td><span class="badge badge-pass">${fmtNum(m.totalPassKg)} Kg</span></td>
+        <td><span class="badge badge-fail">${fmtNum(m.totalFailKg)} Kg</span></td>
+        <td><b>${fmtNum(m.stokFGKg)} Kg</b></td>
+        <td>${fmtNum(m.totalKeluarKg)} Kg</td>
+        <td><strong style="color:var(--primary);">${fmtNum(m.stokAkhirKg)} Kg</strong> <span style="font-size:11px;color:var(--muted);">(${fmtNum(m.stokAkhirTon)} T)</span></td>
+        <td style="font-size:11.5px;color:var(--muted);">${m.oleh || '-'}</td>
+        <td class="editor-only">
+          <button class="btn btn-outline btn-sm" onclick='openEditModal("Master_Barang", WMS_DATA.masterList[${idx}])' title="Edit Master"><i class="ri-edit-line"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function submitMaster() {
+    const kode = document.getElementById('mKode').value.trim();
+    const nama = document.getElementById('mNama').value.trim();
+    const gudangTujuan = document.getElementById('mGudang').value;
+    const stokAwal = document.getElementById('mStok').value;
+    const satuan = document.getElementById('mSatuan').value;
+    if (!nama) return showToast('Nama Barang wajib diisi.');
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      document.getElementById('mNama').value = '';
+      document.getElementById('mStok').value = '0';
+      loadData();
+    }).addMasterBarang({ kode, nama, gudangTujuan, stokAwal, satuan }, CURRENT_USER.username);
+  }
+
+  function buildShiftOptionsHtml(selectedVal = '') {
+    return SHIFT_LINE_OPTIONS.map(s => `<option value="${s}" ${s === selectedVal ? 'selected' : ''}>${s}</option>`).join('');
+  }
+
+  function buildGudangOptionsHtml(selectedVal = '') {
+    return getGudangNames().map(g => `<option value="${g}" ${g === selectedVal ? 'selected' : ''}>${g}</option>`).join('');
+  }
+
+  function buildBarangOptionsHtml(selectedVal = '', includeEmpty = false) {
+    const base = includeEmpty ? '<option value="">-- Pilih Barang --</option>' : '';
+    return base + WMS_DATA.masterList.map(m => `<option value="${m.nama}" ${m.nama === selectedVal ? 'selected' : ''}>${m.kode} - ${m.nama}</option>`).join('');
+  }
+
+  function buildSatuanOptionsHtml(selectedVal = 'Kg') {
+    return `
+      <option value="Kg" ${selectedVal === 'Kg' ? 'selected' : ''}>Kg</option>
+      <option value="Ton" ${selectedVal === 'Ton' ? 'selected' : ''}>Ton</option>
+    `;
+  }
+
+  function populateDropdowns() {
+    document.getElementById('mGudang').innerHTML = buildGudangOptionsHtml();
+    document.getElementById('stShift').innerHTML = buildShiftOptionsHtml();
+    document.getElementById('stBarang').innerHTML = buildBarangOptionsHtml();
+    document.getElementById('stGudang').innerHTML = buildGudangOptionsHtml();
+    document.getElementById('klBarang').innerHTML = buildBarangOptionsHtml();
+    document.getElementById('klGudang').innerHTML = buildGudangOptionsHtml();
+  }
+
+  function createMasukRowHtml(index) {
+    return `
+      <tr>
+        <td>${index}</td>
+        <td><input type="date" class="m-tgl" value="${todayStr()}"></td>
+        <td><select class="m-shift">${buildShiftOptionsHtml()}</select></td>
+        <td><select class="m-brg">${buildBarangOptionsHtml('', true)}</select></td>
+        <td><input type="number" class="m-qty" step="0.01" min="0" placeholder="0"></td>
+        <td><select class="m-sat">${buildSatuanOptionsHtml('Kg')}</select></td>
+        <td>
+          <select class="m-ket">
+            <option value="Mix">Mix</option>
+            <option value="Redryer">Redryer</option>
+            <option value="Blending">Blending</option>
+          </select>
+        </td>
+        <td><select class="m-gdg">${buildGudangOptionsHtml()}</select></td>
+      </tr>
+    `;
+  }
+
+  function initMasukBatch() {
+    const tbody = document.getElementById('masukBatchBody');
+    if (tbody.children.length > 0) return;
+    let html = '';
+    for (let i = 1; i <= 10; i++) html += createMasukRowHtml(i);
+    tbody.innerHTML = html;
+  }
+
+  function addMasukRow() {
+    const tbody = document.getElementById('masukBatchBody');
+    const nextIdx = tbody.children.length + 1;
+    tbody.insertAdjacentHTML('beforeend', createMasukRowHtml(nextIdx));
+  }
+
+  function submitMasukBatch() {
+    const trs = document.querySelectorAll('#masukBatchBody tr');
+    const rows = [];
+    trs.forEach(tr => {
+      rows.push({
+        tanggal: tr.querySelector('.m-tgl').value,
+        shiftLine: tr.querySelector('.m-shift').value,
+        namaBarang: tr.querySelector('.m-brg').value,
+        qty: tr.querySelector('.m-qty').value,
+        satuan: tr.querySelector('.m-sat').value,
+        keterangan: tr.querySelector('.m-ket').value,
+        gudang: tr.querySelector('.m-gdg').value
+      });
+    });
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      if (res.success) {
+        document.getElementById('masukBatchBody').innerHTML = '';
+        loadData();
+      }
+    }).saveBatchMasuk(rows, CURRENT_USER.username);
+  }
+
+  function autoFillStatusFromMasuk() {
+    const tgl = document.getElementById('stTanggal').value;
+    const shift = document.getElementById('stShift').value;
+    if (!tgl || !shift || !WMS_DATA) return;
+
+    const matches = WMS_DATA.masukList.filter(m => m.tanggal === tgl && m.shiftLine === shift);
+    if (matches.length > 0) {
+      const latest = matches[0];
+      const totalKgShift = matches.reduce((acc, cur) => acc + cur.qtyKg, 0);
+      document.getElementById('stBarang').value = latest.namaBarang;
+      document.getElementById('stQty').value = totalKgShift;
+      document.getElementById('stSatuan').value = 'Kg';
+      document.getElementById('stGudang').value = latest.gudang;
+      showToast(`Auto-fill: ${latest.namaBarang} (${fmtNum(totalKgShift)} Kg) ditemukan pada ${shift}.`);
+    }
+  }
+
+  function submitStatus() {
+    const payload = {
+      tanggal: document.getElementById('stTanggal').value,
+      shiftLine: document.getElementById('stShift').value,
+      namaBarang: document.getElementById('stBarang').value,
+      qty: document.getElementById('stQty').value,
+      satuan: document.getElementById('stSatuan').value,
+      statusQC: document.getElementById('stHasil').value,
+      gudang: document.getElementById('stGudang').value,
+      catatan: document.getElementById('stCatatan').value
+    };
+    if (!payload.tanggal || !payload.namaBarang || Number(payload.qty) <= 0) {
+      return showToast('Lengkapi tanggal, barang, dan Qty > 0.');
+    }
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      document.getElementById('stQty').value = '';
+      document.getElementById('stCatatan').value = '';
+      loadData();
+    }).saveStatusQC(payload, CURRENT_USER.username);
+  }
+
+  function handleTransisiAction(row, selId, gdgId) {
+    const tindakan = document.getElementById(selId).value;
+    const gudangTujuan = document.getElementById(gdgId).value;
+    const selesaikan = tindakan === 'Rebagging';
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      loadData();
+    }).processTransisi({ row, tindakan, gudangTujuan, selesaikan }, CURRENT_USER.username);
+  }
+
+  function handleCompleteRebagging(row, qtyId, gdgId) {
+    const qtyFG = document.getElementById(qtyId).value;
+    const gudangFG = document.getElementById(gdgId).value;
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      loadData();
+    }).completeRebagging({ row, qtyFG, gudangFG }, CURRENT_USER.username);
+  }
+
+  function submitKeluar() {
+    const qtyInput = Number(document.getElementById('klQty').value) || 0;
+    const satuan = document.getElementById('klSatuan').value;
+    const qtyKg = satuan === 'Ton' ? qtyInput * 1000 : qtyInput;
+
+    const payload = {
+      tanggal: document.getElementById('klTanggal').value,
+      namaBarang: document.getElementById('klBarang').value,
+      nopol: document.getElementById('klNopol').value.trim(),
+      qty: qtyInput,
+      satuan: satuan,
+      asalGudang: document.getElementById('klGudang').value,
+      tujuan: document.getElementById('klTujuan').value.trim()
+    };
+
+    if (!payload.nopol || qtyInput <= 0) {
+      return showToast('Isi Nopol kendaraan dan Qty keluar > 0.');
+    }
+
+    const fgItem = WMS_DATA.fgList.find(f => f.namaBarang === payload.namaBarang);
+    const stokTersediaKg = fgItem && fgItem.perGudang ? (fgItem.perGudang[payload.asalGudang] || 0) : 0;
+    if (qtyKg > stokTersediaKg) {
+      return showToast(`Stok FG tidak cukup! Tersedia di ${payload.asalGudang}: ${fmtNum(stokTersediaKg)} Kg.`);
+    }
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false);
+      showToast(res.message);
+      document.getElementById('klNopol').value = '';
+      document.getElementById('klQty').value = '';
+      loadData();
+    }).saveBarangKeluar(payload, CURRENT_USER.username);
+  }
+
+  /* ==================== MODAL EDIT & HAPUS ==================== */
+  function openEditModal(sheetName, item) {
+    EDIT_CONTEXT = { sheetName, row: item.row, kode: item.kode };
+    document.getElementById('editModalTitle').textContent = `Edit ${sheetName} (${item.id || item.kode})`;
+    let html = '';
+
+    if (sheetName === 'Master_Barang') {
+      html = `
+        <div class="form-group"><label>Kode Barang</label><input type="text" value="${item.kode}" readonly></div>
+        <div class="form-group"><label>Nama Barang</label><input type="text" id="ed_nama" value="${item.nama}"></div>
+        <div class="form-group"><label>Gudang Tujuan Awal</label><select id="ed_gdg">${buildGudangOptionsHtml(item.gudangTujuan)}</select></div>
+        <div class="form-group"><label>Stok Awal</label><input type="number" id="ed_stok" step="0.01" value="${item.stokAwal}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+      `;
+    } else if (sheetName === 'Masuk') {
+      html = `
+        <div class="form-group"><label>Tanggal</label><input type="date" id="ed_tgl" value="${item.tanggal}"></div>
+        <div class="form-group"><label>Shift / Line</label><select id="ed_shift">${buildShiftOptionsHtml(item.shiftLine)}</select></div>
+        <div class="form-group"><label>Nama Barang</label><select id="ed_brg">${buildBarangOptionsHtml(item.namaBarang)}</select></div>
+        <div class="form-group"><label>Qty</label><input type="number" id="ed_qty" step="0.01" value="${item.qty}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+        <div class="form-group"><label>Keterangan Proses</label><input type="text" id="ed_ket" value="${item.keterangan}"></div>
+        <div class="form-group"><label>Gudang Tujuan</label><select id="ed_gdg">${buildGudangOptionsHtml(item.gudang)}</select></div>
+      `;
+    } else if (sheetName === 'Status') {
+      html = `
+        <div class="form-group"><label>Tanggal</label><input type="date" id="ed_tgl" value="${item.tanggal}"></div>
+        <div class="form-group"><label>Shift / Line</label><select id="ed_shift">${buildShiftOptionsHtml(item.shiftLine)}</select></div>
+        <div class="form-group"><label>Nama Barang</label><select id="ed_brg">${buildBarangOptionsHtml(item.namaBarang)}</select></div>
+        <div class="form-group"><label>Qty</label><input type="number" id="ed_qty" step="0.01" value="${item.qty}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+        <div class="form-group"><label>Status QC</label>
+          <select id="ed_qc">
+            <option value="Pass" ${item.statusQC === 'Pass' ? 'selected' : ''}>Pass</option>
+            <option value="Fail" ${item.statusQC === 'Fail' ? 'selected' : ''}>Fail</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Gudang</label><select id="ed_gdg">${buildGudangOptionsHtml(item.gudang)}</select></div>
+        <div class="form-group"><label>Catatan QC</label><input type="text" id="ed_cat" value="${item.catatan || ''}"></div>
+      `;
+    } else if (sheetName === 'Transisi') {
+      html = `
+        <div class="form-group"><label>Tanggal</label><input type="date" id="ed_tgl" value="${item.tanggal}"></div>
+        <div class="form-group"><label>Shift / Line</label><select id="ed_shift">${buildShiftOptionsHtml(item.shiftLine)}</select></div>
+        <div class="form-group"><label>Nama Barang</label><select id="ed_brg">${buildBarangOptionsHtml(item.namaBarang)}</select></div>
+        <div class="form-group"><label>Qty</label><input type="number" id="ed_qty" step="0.01" value="${item.qty}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+        <div class="form-group"><label>Asal Gudang</label><select id="ed_asal">${buildGudangOptionsHtml(item.asalGudang)}</select></div>
+        <div class="form-group"><label>Tindakan Lanjutan</label><input type="text" id="ed_tindakan" value="${item.tindakan}"></div>
+        <div class="form-group"><label>Gudang Tujuan</label><select id="ed_gdg">${buildGudangOptionsHtml(item.gudangTujuan)}</select></div>
+        <div class="form-group"><label>Status Proses</label>
+          <select id="ed_sts">
+            <option value="Menunggu Proses" ${item.statusProses === 'Menunggu Proses' ? 'selected' : ''}>Menunggu Proses</option>
+            <option value="Selesai ke Rebagging" ${item.statusProses === 'Selesai ke Rebagging' ? 'selected' : ''}>Selesai ke Rebagging</option>
+          </select>
+        </div>
+      `;
+    } else if (sheetName === 'Rebagging') {
+      html = `
+        <div class="form-group"><label>Tanggal</label><input type="date" id="ed_tgl" value="${item.tanggal}"></div>
+        <div class="form-group"><label>Shift / Line</label><select id="ed_shift">${buildShiftOptionsHtml(item.shiftLine)}</select></div>
+        <div class="form-group"><label>Nama Barang</label><select id="ed_brg">${buildBarangOptionsHtml(item.namaBarang)}</select></div>
+        <div class="form-group"><label>Qty Masuk</label><input type="number" id="ed_qmasuk" step="0.01" value="${item.qtyMasuk}"></div>
+        <div class="form-group"><label>Qty Jadi FG</label><input type="number" id="ed_qfg" step="0.01" value="${item.qtyFG}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+        <div class="form-group"><label>Gudang FG Tujuan</label><select id="ed_gdg">${buildGudangOptionsHtml(item.gudangFG)}</select></div>
+        <div class="form-group"><label>Status Rebagging</label>
+          <select id="ed_sts">
+            <option value="Proses Rebagging" ${item.status === 'Proses Rebagging' ? 'selected' : ''}>Proses Rebagging</option>
+            <option value="Selesai - Masuk FG" ${item.status === 'Selesai - Masuk FG' ? 'selected' : ''}>Selesai - Masuk FG</option>
+          </select>
+        </div>
+      `;
+    } else if (sheetName === 'Keluar') {
+      html = `
+        <div class="form-group"><label>Tanggal Kirim</label><input type="date" id="ed_tgl" value="${item.tanggal}"></div>
+        <div class="form-group"><label>Nama Barang</label><select id="ed_brg">${buildBarangOptionsHtml(item.namaBarang)}</select></div>
+        <div class="form-group"><label>Nopol Kendaraan</label><input type="text" id="ed_nopol" value="${item.nopol}"></div>
+        <div class="form-group"><label>Qty Keluar</label><input type="number" id="ed_qty" step="0.01" value="${item.qty}"></div>
+        <div class="form-group"><label>Satuan</label><select id="ed_sat">${buildSatuanOptionsHtml(item.satuan)}</select></div>
+        <div class="form-group"><label>Asal Gudang</label><select id="ed_gdg">${buildGudangOptionsHtml(item.asalGudang)}</select></div>
+        <div class="form-group"><label>Customer / Tujuan</label><input type="text" id="ed_tujuan" value="${item.tujuan || ''}"></div>
+      `;
+    }
+
+    document.getElementById('editModalFields').innerHTML = html;
+    document.getElementById('editModal').style.display = 'flex';
+  }
+
+  function closeEditModal() {
+    EDIT_CONTEXT = null;
+    document.getElementById('editModal').style.display = 'none';
+  }
+
+  function submitEditModal() {
+    if (!EDIT_CONTEXT) return;
+    const { sheetName, row, kode } = EDIT_CONTEXT;
+
+    if (sheetName === 'Master_Barang') {
+      const payload = {
+        row, kode,
+        nama: document.getElementById('ed_nama').value,
+        gudangTujuan: document.getElementById('ed_gdg').value,
+        stokAwal: document.getElementById('ed_stok').value,
+        satuan: document.getElementById('ed_sat').value
+      };
+      showLoader(true);
+      google.script.run.withSuccessHandler(res => {
+        showLoader(false); showToast(res.message); closeEditModal(); loadData();
+      }).updateMasterBarang(payload, CURRENT_USER.username);
+      return;
+    }
+
+    const payload = { sheetName, row };
+    if (sheetName === 'Masuk') {
+      payload.tanggal = document.getElementById('ed_tgl').value;
+      payload.shiftLine = document.getElementById('ed_shift').value;
+      payload.namaBarang = document.getElementById('ed_brg').value;
+      payload.qty = document.getElementById('ed_qty').value;
+      payload.satuan = document.getElementById('ed_sat').value;
+      payload.keterangan = document.getElementById('ed_ket').value;
+      payload.gudang = document.getElementById('ed_gdg').value;
+    } else if (sheetName === 'Status') {
+      payload.tanggal = document.getElementById('ed_tgl').value;
+      payload.shiftLine = document.getElementById('ed_shift').value;
+      payload.namaBarang = document.getElementById('ed_brg').value;
+      payload.qty = document.getElementById('ed_qty').value;
+      payload.satuan = document.getElementById('ed_sat').value;
+      payload.statusQC = document.getElementById('ed_qc').value;
+      payload.gudang = document.getElementById('ed_gdg').value;
+      payload.catatan = document.getElementById('ed_cat').value;
+    } else if (sheetName === 'Transisi') {
+      payload.tanggal = document.getElementById('ed_tgl').value;
+      payload.shiftLine = document.getElementById('ed_shift').value;
+      payload.namaBarang = document.getElementById('ed_brg').value;
+      payload.qty = document.getElementById('ed_qty').value;
+      payload.satuan = document.getElementById('ed_sat').value;
+      payload.asalGudang = document.getElementById('ed_asal').value;
+      payload.tindakan = document.getElementById('ed_tindakan').value;
+      payload.gudangTujuan = document.getElementById('ed_gdg').value;
+      payload.statusProses = document.getElementById('ed_sts').value;
+    } else if (sheetName === 'Rebagging') {
+      payload.tanggal = document.getElementById('ed_tgl').value;
+      payload.shiftLine = document.getElementById('ed_shift').value;
+      payload.namaBarang = document.getElementById('ed_brg').value;
+      payload.qtyMasuk = document.getElementById('ed_qmasuk').value;
+      payload.qtyFG = document.getElementById('ed_qfg').value;
+      payload.satuan = document.getElementById('ed_sat').value;
+      payload.gudangFG = document.getElementById('ed_gdg').value;
+      payload.status = document.getElementById('ed_sts').value;
+    } else if (sheetName === 'Keluar') {
+      payload.tanggal = document.getElementById('ed_tgl').value;
+      payload.namaBarang = document.getElementById('ed_brg').value;
+      payload.nopol = document.getElementById('ed_nopol').value;
+      payload.qty = document.getElementById('ed_qty').value;
+      payload.satuan = document.getElementById('ed_sat').value;
+      payload.asalGudang = document.getElementById('ed_gdg').value;
+      payload.tujuan = document.getElementById('ed_tujuan').value;
+    }
+
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false); showToast(res.message); closeEditModal(); loadData();
+    }).updateTransaksi(payload, CURRENT_USER.username);
+  }
+
+  function handleDeleteTransaksi(sheetName, row, kodeId) {
+    if (!confirm(`Yakin ingin menghapus transaksi ${kodeId} pada ${sheetName}?`)) return;
+    showLoader(true);
+    google.script.run.withSuccessHandler(res => {
+      showLoader(false); showToast(res.message); loadData();
+    }).deleteTransaksi(sheetName, row);
+  }
+
+  function renderTables() {
+    // Tabel Masuk
+    document.getElementById('tblMasuk').innerHTML = WMS_DATA.masukList.map((r, idx) => `
+      <tr>
+        <td><b>${r.id}</b></td><td>${r.tanggal}</td><td>${r.shiftLine}</td><td>${r.namaBarang}</td>
+        <td><b>${fmtNum(r.qty)} ${r.satuan}</b></td><td>${fmtNum(r.qtyKg)} Kg</td>
+        <td><span class="badge badge-info">${r.keterangan}</span></td><td>${r.gudang}</td>
+        <td style="font-size:11.5px;">${r.inputOleh || '-'}</td>
+        <td style="font-size:11.5px;color:var(--muted);">${r.dieditOleh && r.dieditOleh !== '-' ? r.dieditOleh + ' (' + r.waktuUpdate + ')' : '-'}</td>
+        <td class="editor-only" style="white-space:nowrap;">
+          <button class="btn btn-outline btn-sm" onclick='openEditModal("Masuk", WMS_DATA.masukList[${idx}])' title="Edit"><i class="ri-edit-line"></i></button>
+          <button class="btn btn-danger btn-sm" onclick='handleDeleteTransaksi("Masuk", ${r.row}, "${r.id}")' title="Hapus"><i class="ri-delete-bin-line"></i></button>
+        </td>
+      </tr>
+    `).join('');
+
+    // Tabel Status
+    document.getElementById('tblStatus').innerHTML = WMS_DATA.statusList.map((r, idx) => `
+      <tr>
+        <td><b>${r.id}</b></td><td>${r.tanggal}</td><td>${r.shiftLine}</td><td>${r.namaBarang}</td>
+        <td><b>${fmtNum(r.qty)} ${r.satuan}</b></td><td>${fmtNum(r.qtyKg)} Kg</td>
+        <td><span class="badge ${r.statusQC === 'Pass' ? 'badge-pass' : 'badge-fail'}">${r.statusQC}</span></td>
+        <td><b>→ ${r.tujuanOtomatis}</b></td><td>${r.gudang}</td><td>${r.catatan}</td>
+        <td style="font-size:11.5px;">In: ${r.inputOleh || '-'}<br><span style="color:var(--muted);">Ed: ${r.dieditOleh || '-'}</span></td>
+        <td class="editor-only" style="white-space:nowrap;">
+          <button class="btn btn-outline btn-sm" onclick='openEditModal("Status", WMS_DATA.statusList[${idx}])' title="Edit"><i class="ri-edit-line"></i></button>
+          <button class="btn btn-danger btn-sm" onclick='handleDeleteTransaksi("Status", ${r.row}, "${r.id}")' title="Hapus"><i class="ri-delete-bin-line"></i></button>
+        </td>
+      </tr>
+    `).join('');
+
+    // Tabel Transisi
+    document.getElementById('tblTransisi').innerHTML = WMS_DATA.transisiList.map((r, idx) => {
+      const done = r.statusProses === 'Selesai ke Rebagging';
+      return `
+        <tr>
+          <td><b>${r.id}</b></td><td>${r.refStatus}</td><td>${r.tanggal}</td><td>${r.namaBarang}</td>
+          <td><b>${fmtNum(r.qty)} ${r.satuan}</b></td><td>${fmtNum(r.qtyKg)} Kg</td><td>${r.asalGudang}</td>
+          <td>
+            <select id="trnAct_${r.row}" ${done ? 'disabled' : ''}>
+              <option value="Redryer" ${r.tindakan === 'Redryer' ? 'selected' : ''}>Redryer</option>
+              <option value="Blending" ${r.tindakan === 'Blending' ? 'selected' : ''}>Blending</option>
+              <option value="Rebagging" ${r.tindakan === 'Rebagging' ? 'selected' : ''}>Lanjut ke Rebagging</option>
+            </select>
+          </td>
+          <td><select id="trnGdg_${r.row}" ${done ? 'disabled' : ''}>${buildGudangOptionsHtml(r.gudangTujuan)}</select></td>
+          <td><span class="badge ${done ? 'badge-pass' : 'badge-warn'}">${r.statusProses}</span></td>
+          <td style="font-size:11.5px;">In: ${r.inputOleh || '-'}<br><span style="color:var(--muted);">Ed: ${r.dieditOleh || '-'}</span></td>
+          <td class="editor-only" style="white-space:nowrap;">
+            ${done ? '' : `<button class="btn btn-primary btn-sm" onclick="handleTransisiAction(${r.row}, 'trnAct_${r.row}', 'trnGdg_${r.row}')">Proses</button>`}
+            <button class="btn btn-outline btn-sm" onclick='openEditModal("Transisi", WMS_DATA.transisiList[${idx}])' title="Edit"><i class="ri-edit-line"></i></button>
+            <button class="btn btn-danger btn-sm" onclick='handleDeleteTransaksi("Transisi", ${r.row}, "${r.id}")' title="Hapus"><i class="ri-delete-bin-line"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Tabel Rebagging
+    document.getElementById('tblRebagging').innerHTML = WMS_DATA.rebagList.map((r, idx) => {
+      const done = r.status === 'Selesai - Masuk FG';
+      return `
+        <tr>
+          <td><b>${r.id}</b></td><td>${r.sumber}</td><td>${r.tanggal}</td><td>${r.namaBarang}</td>
+          <td>${fmtNum(r.qtyMasuk)} ${r.satuan}</td>
+          <td><input type="number" id="rbgQty_${r.row}" value="${r.qtyFG}" style="width:90px;" ${done ? 'disabled' : ''}></td>
+          <td><b>${r.satuan}</b></td>
+          <td><select id="rbgGdg_${r.row}" ${done ? 'disabled' : ''}>${buildGudangOptionsHtml(r.gudangFG)}</select></td>
+          <td><span class="badge ${done ? 'badge-pass' : 'badge-info'}">${r.status}</span></td>
+          <td style="font-size:11.5px;">In: ${r.inputOleh || '-'}<br><span style="color:var(--muted);">Ed: ${r.dieditOleh || '-'}</span></td>
+          <td class="editor-only" style="white-space:nowrap;">
+            ${done ? '' : `<button class="btn btn-success btn-sm" onclick="handleCompleteRebagging(${r.row}, 'rbgQty_${r.row}', 'rbgGdg_${r.row}')">Jadi FG</button>`}
+            <button class="btn btn-outline btn-sm" onclick='openEditModal("Rebagging", WMS_DATA.rebagList[${idx}])' title="Edit"><i class="ri-edit-line"></i></button>
+            <button class="btn btn-danger btn-sm" onclick='handleDeleteTransaksi("Rebagging", ${r.row}, "${r.id}")' title="Hapus"><i class="ri-delete-bin-line"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Tabel FG Dinamis sesuai daftar gudang
+    const gudangNames = getGudangNames();
+    document.getElementById('fgTableHead').innerHTML = `
+      <th>Nama Barang</th>
+      ${gudangNames.map(g => `<th>${g} (Kg)</th>`).join('')}
+      <th>Total Masuk (Kg)</th><th>Total Keluar (Kg)</th><th>Stok FG Siap Kirim</th>
+    `;
+
+    document.getElementById('tblFG').innerHTML = WMS_DATA.fgList.map(r => `
+      <tr>
+        <td><b>${r.namaBarang}</b></td>
+        ${gudangNames.map(g => `<td>${fmtNum(r.perGudang[g] || 0)}</td>`).join('')}
+        <td>${fmtNum(r.totalMasukKg)} Kg</td>
+        <td>${fmtNum(r.totalKeluarKg)} Kg</td>
+        <td><strong style="color:var(--success);font-size:14px;">${fmtNum(r.stokSiapKirimKg)} Kg</strong> <span style="font-size:11px;color:var(--muted);">(${fmtNum(r.stokSiapKirimTon)} T)</span></td>
+      </tr>
+    `).join('');
+
+    // Tabel Keluar
+    document.getElementById('tblKeluar').innerHTML = WMS_DATA.keluarList.map((r, idx) => `
+      <tr>
+        <td><b>${r.id}</b></td><td>${r.tanggal}</td><td>${r.namaBarang}</td>
+        <td><span class="badge badge-info">${r.nopol}</span></td>
+        <td><b>${fmtNum(r.qty)} ${r.satuan}</b></td><td>${fmtNum(r.qtyKg)} Kg</td>
+        <td>${r.asalGudang}</td><td>${r.tujuan}</td>
+        <td style="font-size:11.5px;">${r.inputOleh || '-'}</td>
+        <td style="font-size:11.5px;color:var(--muted);">${r.dieditOleh && r.dieditOleh !== '-' ? r.dieditOleh + ' (' + r.waktuUpdate + ')' : '-'}</td>
+        <td class="editor-only" style="white-space:nowrap;">
+          <button class="btn btn-outline btn-sm" onclick='openEditModal("Keluar", WMS_DATA.keluarList[${idx}])' title="Edit"><i class="ri-edit-line"></i></button>
+          <button class="btn btn-danger btn-sm" onclick='handleDeleteTransaksi("Keluar", ${r.row}, "${r.id}")' title="Hapus"><i class="ri-delete-bin-line"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+</script>
+</body>
+</html>
